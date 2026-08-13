@@ -35,12 +35,14 @@ jobs:
         run: |
           set -euo pipefail
           cd Cactus
-          find arrangements -mindepth 3 -maxdepth 3 -type f -name interface.ccl -print \
+          find -L arrangements -mindepth 3 -maxdepth 3 -name interface.ccl -print \
             | sed -E 's#^arrangements/([^/]+)/([^/]+)/interface\.ccl$#\1/\2#' \
             | sort -u > ../ftar-c0-local.th
-          grep -qx 'FTAR/FTARScalarX' ../ftar-c0-local.th
+          for thorn in FTAR/FTARScalarX Cottonmouth/CottonmouthZ4c4m CarpetX/CarpetX CarpetX/TmunuBaseX CarpetX/ODESolvers CarpetX/ADMBaseX; do
+            grep -qx "$thorn" ../ftar-c0-local.th || { echo "Missing required thorn $thorn"; exit 2; }
+          done
           echo "Thorns selected: $(wc -l < ../ftar-c0-local.th)"
-          grep -E 'CottonmouthZ4c4m|CarpetX|TmunuBaseX|ODESolvers|FTARScalarX' ../ftar-c0-local.th
+          grep -E 'CottonmouthZ4c4m|CarpetX/CarpetX|TmunuBaseX|ODESolvers|ADMBaseX|FTARScalarX' ../ftar-c0-local.th
 
       - name: Configure directly with Cactus make system
         run: |
@@ -65,10 +67,10 @@ jobs:
             grep -R -n -E 'eT(tt|tx|ty|tz|xx|xy|xz|yy|yz|zz).*([+]=|=)' arrangements/FTAR/FTARScalarX || true
             echo '=== FTARScalarX schedule ==='
             cat arrangements/FTAR/FTARScalarX/schedule.ccl
-            echo '=== TmunuBaseX zero/add schedule references ==='
-            grep -R -n -E 'ZeroTmunu|eTtt|eTtx|eTxx' arrangements/CarpetX arrangements/*/TmunuBaseX 2>/dev/null | head -300 || true
+            echo '=== TmunuBaseX schedule ==='
+            cat arrangements/CarpetX/TmunuBaseX/schedule.ccl
             echo '=== Cottonmouth RHS schedule ==='
-            grep -R -n -E 'z4c_rhs_group|Tmunu|RHSGroup' arrangements/Cottonmouth/CottonmouthZ4c4m 2>/dev/null | head -300 || true
+            grep -n -E 'z4c_rhs_group|TmunuBaseX::eT|CottonmouthZ4c_RHSGroup' arrangements/Cottonmouth/CottonmouthZ4c4m/schedule.ccl | head -200 || true
           } | tee ../tmunu-accounting-c01.log
 
       - name: Collect diagnostics
@@ -78,7 +80,7 @@ jobs:
           tail -400 configure-c01.log > configure-c01-tail.txt 2>/dev/null
           tail -500 build-c01.log > build-c01-tail.txt 2>/dev/null
           cp Cactus/configs/ftar-c0/ThornList thornlist-c01.txt 2>/dev/null
-          find Cactus/configs/ftar-c0 -maxdepth 3 -type f -name '*error*' -o -name 'config.log' 2>/dev/null | sort > config-diagnostic-files.txt
+          find Cactus/configs/ftar-c0 -maxdepth 3 \( -type f -name '*error*' -o -type f -name 'config.log' \) 2>/dev/null | sort > config-diagnostic-files.txt
 
       - name: Upload diagnostics
         if: always()
