@@ -1,0 +1,26 @@
+IMPLEMENTS: FTARScalarX
+INHERITS: CottonmouthZ4c4m
+
+USES INCLUDE HEADER: loop_device.hxx
+
+PUBLIC:
+CCTK_REAL state TYPE=gf CENTERING={VVV} TAGS='rhs="rhs" parities={+1 +1 +1   +1 +1 +1}'
+{
+  phi
+  Pi
+} "Scalar field phi and normal derivative Pi=n^mu d_mu phi"
+
+PUBLIC:
+CCTK_REAL rhs TYPE=gf CENTERING={VVV} TAGS='checkpoint="no" parities={+1 +1 +1   +1 +1 +1}'
+{
+  phi_rhs
+  Pi_rhs
+} "Scalar RHS"
+
+PUBLIC:
+CCTK_REAL diagnostics TYPE=gf CENTERING={VVV} TAGS='checkpoint="no"'
+{
+  scalar_rho
+  scalar_grad2
+  scalar_V
+} "Scalar diagnostics"
