@@ -1,0 +1,50 @@
+name: FTAR Z4c C0
+
+on:
+  push:
+    branches: [ftar-z4c-c0-build]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Einstein Toolkit build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gfortran git subversion curl wget perl python3 python3-pip pkg-config cmake ninja-build ccache openmpi-bin libopenmpi-dev libhdf5-openmpi-dev libfftw3-dev libgsl-dev libssl-dev liblapack-dev libopenblas-dev libhwloc-dev libboost-all-dev
+      - name: Fetch ET_2026_05
+        run: |
+          curl -fsSLO https://raw.githubusercontent.com/gridaphobe/CRL/master/GetComponents
+          chmod +x GetComponents
+          curl -fsSL https://raw.githubusercontent.com/EinsteinToolkit/manifest/ET_2026_05/einsteintoolkit.th -o einsteintoolkit.th
+          ./GetComponents --parallel einsteintoolkit.th
+      - name: Add Cottonmouth ET_2026_05
+        run: |
+          git clone --depth 1 --branch ET_2026_05 https://github.com/EinsteinToolkit/cottonmouth.git Cactus/arrangements/Cottonmouth
+          mkdir -p Cactus/arrangements/FTAR
+          cp -a z4c_c0/FTARScalarX Cactus/arrangements/FTAR/
+      - name: Configure SimFactory
+        run: |
+          cd Cactus
+          ./simfactory/bin/sim setup-silent
+      - name: Build Cottonmouth Z4c plus FTARScalarX
+        run: |
+          cd Cactus
+          ./simfactory/bin/sim build -j2 --thornlist ../einsteintoolkit.th 2>&1 | tee ../build.log
+      - name: Record thorn presence
+        if: always()
+        run: |
+          grep -R "FTARScalarX" -n Cactus/configs 2>/dev/null | head -100 > thorn_presence.txt || true
+          tail -300 build.log > build_tail.txt || true
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ftar-z4c-c0-build-diagnostics
+          path: |
+            build.log
+            build_tail.txt
+            thorn_presence.txt
