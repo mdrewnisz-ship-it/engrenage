@@ -38,11 +38,20 @@ jobs:
           find -L arrangements -mindepth 3 -maxdepth 3 -name interface.ccl -print \
             | sed -E 's#^arrangements/([^/]+)/([^/]+)/interface\.ccl$#\1/\2#' \
             | sort -u > ../ftar-c0-local.th
-          for thorn in FTAR/FTARScalarX Cottonmouth/CottonmouthZ4c4m CarpetX/CarpetX CarpetX/TmunuBaseX CarpetX/ODESolvers CarpetX/ADMBaseX; do
+
+          # The ET checkout contains alternative thorns providing the same
+          # Cactus capabilities. Keep one provider for each capability.
+          sed -i \
+            -e '/^ExternalLibraries\/BLAS$/d' \
+            -e '/^ExternalLibraries\/LAPACK$/d' \
+            -e '/^ExternalLibraries\/LORENE$/d' \
+            ../ftar-c0-local.th
+
+          for thorn in FTAR/FTARScalarX Cottonmouth/CottonmouthZ4c4m CarpetX/CarpetX CarpetX/TmunuBaseX CarpetX/ODESolvers CarpetX/ADMBaseX ExternalLibraries/OpenBLAS ExternalLibraries/LORENE2; do
             grep -qx "$thorn" ../ftar-c0-local.th || { echo "Missing required thorn $thorn"; exit 2; }
           done
           echo "Thorns selected: $(wc -l < ../ftar-c0-local.th)"
-          grep -E 'CottonmouthZ4c4m|CarpetX/CarpetX|TmunuBaseX|ODESolvers|ADMBaseX|FTARScalarX' ../ftar-c0-local.th
+          grep -E 'CottonmouthZ4c4m|CarpetX/CarpetX|TmunuBaseX|ODESolvers|ADMBaseX|FTARScalarX|ExternalLibraries/(OpenBLAS|LORENE2)' ../ftar-c0-local.th
 
       - name: Configure directly with Cactus make system
         run: |
