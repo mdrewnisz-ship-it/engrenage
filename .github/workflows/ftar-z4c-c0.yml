@@ -26,10 +26,6 @@ jobs:
           cp -a z4c_c0/FTARScalarX Cactus/arrangements/FTAR/
           curl -fsSL https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2026_05/einsteintoolkit.th -o ftar-z4c.th
           printf '\n# Local FTAR thorn\nFTAR/FTARScalarX\n' >> ftar-z4c.th
-      - name: Configure SimFactory
-        run: |
-          cd Cactus
-          ./simfactory/bin/sim setup-silent
       - name: Build Cottonmouth Z4c plus FTARScalarX
         run: |
           cd Cactus
