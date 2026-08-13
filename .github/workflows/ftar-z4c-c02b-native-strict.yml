@@ -1,0 +1,65 @@
+name: FTAR Z4c C0.2b native strict
+
+on:
+  push:
+    branches: [ftar-z4c-c0-build]
+  workflow_dispatch:
+
+jobs:
+  native-z4c-strict:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gfortran git subversion curl wget perl python3 python3-pip pkg-config cmake ninja-build ccache openmpi-bin libopenmpi-dev libhdf5-openmpi-dev libfftw3-dev libgsl-dev libssl-dev liblapack-dev libopenblas-dev libhwloc-dev libboost-all-dev
+      - name: Fetch ET_2026_05 Hypatia
+        run: |
+          curl -fsSLO https://raw.githubusercontent.com/gridaphobe/CRL/ET_2026_05/GetComponents
+          chmod +x GetComponents
+          ./GetComponents --shallow https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2026_05/einsteintoolkit.th
+      - name: Add FTARScalarX
+        run: |
+          mkdir -p Cactus/arrangements/FTAR
+          cp -a z4c_c0/FTARScalarX Cactus/arrangements/FTAR/
+          curl -fsSL https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2026_05/einsteintoolkit.th -o ftar-z4c.th
+          printf '\n# Local FTAR thorn\nFTAR/FTARScalarX\n' >> ftar-z4c.th
+      - name: Build
+        run: |
+          cd Cactus
+          ./simfactory/bin/sim setup-silent
+          ./simfactory/bin/sim build -j2 --thornlist ../ftar-z4c.th 2>&1 | tee ../build-c02b.log
+          echo 'Executables:'
+          find exe -maxdepth 1 -type f -ls
+      - name: Run linear wave Z4c strictly
+        run: |
+          cd Cactus
+          PAR="$PWD/arrangements/Cottonmouth/CottonmouthZ4c4m/test/linear_wave_z4c.par"
+          ./simfactory/bin/sim create-submit ftar-linear-z4c --configuration sim --parfile "$PAR" --procs 1 --num-threads 1 --walltime 0:10:00 2>&1 | tee ../linear-wave-c02b.log
+      - name: Run QC0 Z4c strictly
+        run: |
+          cd Cactus
+          PAR="$PWD/arrangements/Cottonmouth/CottonmouthZ4c4m/test/qc0_z4c.par"
+          ./simfactory/bin/sim create-submit ftar-qc0-z4c --configuration sim --parfile "$PAR" --procs 1 --num-threads 1 --walltime 0:10:00 2>&1 | tee ../qc0-c02b.log
+      - name: Collect diagnostics
+        if: always()
+        run: |
+          tail -300 build-c02b.log > build-c02b-tail.txt || true
+          tail -300 linear-wave-c02b.log > linear-wave-c02b-tail.txt || true
+          tail -300 qc0-c02b.log > qc0-c02b-tail.txt || true
+          find Cactus/simulations -maxdepth 5 -type f 2>/dev/null | sort > simulation-files-c02b.txt || true
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ftar-z4c-c02b-native-strict-diagnostics
+          path: |
+            build-c02b.log
+            build-c02b-tail.txt
+            linear-wave-c02b.log
+            linear-wave-c02b-tail.txt
+            qc0-c02b.log
+            qc0-c02b-tail.txt
+            simulation-files-c02b.txt
