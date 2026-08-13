@@ -15,17 +15,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential gfortran git subversion curl wget perl python3 python3-pip pkg-config cmake ninja-build ccache openmpi-bin libopenmpi-dev libhdf5-openmpi-dev libfftw3-dev libgsl-dev libssl-dev liblapack-dev libopenblas-dev libhwloc-dev libboost-all-dev
-      - name: Fetch ET_2026_05
+      - name: Fetch ET_2026_05 Hypatia
         run: |
-          curl -fsSLO https://raw.githubusercontent.com/gridaphobe/CRL/master/GetComponents
+          curl -fsSLO https://raw.githubusercontent.com/gridaphobe/CRL/ET_2026_05/GetComponents
           chmod +x GetComponents
-          curl -fsSL https://raw.githubusercontent.com/EinsteinToolkit/manifest/ET_2026_05/einsteintoolkit.th -o einsteintoolkit.th
-          ./GetComponents --parallel einsteintoolkit.th
-      - name: Add Cottonmouth ET_2026_05
+          ./GetComponents --shallow https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2026_05/einsteintoolkit.th
+      - name: Add FTARScalarX and custom thornlist
         run: |
-          git clone --depth 1 --branch ET_2026_05 https://github.com/EinsteinToolkit/cottonmouth.git Cactus/arrangements/Cottonmouth
           mkdir -p Cactus/arrangements/FTAR
           cp -a z4c_c0/FTARScalarX Cactus/arrangements/FTAR/
+          curl -fsSL https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2026_05/einsteintoolkit.th -o ftar-z4c.th
+          printf '\n# Local FTAR thorn\nFTAR/FTARScalarX\n' >> ftar-z4c.th
       - name: Configure SimFactory
         run: |
           cd Cactus
@@ -33,12 +33,12 @@ jobs:
       - name: Build Cottonmouth Z4c plus FTARScalarX
         run: |
           cd Cactus
-          ./simfactory/bin/sim build -j2 --thornlist ../einsteintoolkit.th 2>&1 | tee ../build.log
-      - name: Record thorn presence
+          ./simfactory/bin/sim build -j2 --thornlist ../ftar-z4c.th 2>&1 | tee ../build.log
+      - name: Record diagnostics
         if: always()
         run: |
           grep -R "FTARScalarX" -n Cactus/configs 2>/dev/null | head -100 > thorn_presence.txt || true
-          tail -300 build.log > build_tail.txt || true
+          tail -400 build.log > build_tail.txt || true
       - name: Upload build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
