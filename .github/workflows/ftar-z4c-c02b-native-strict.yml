@@ -1,4 +1,4 @@
-name: FTAR Z4c C0.2b native strict
+name: FTAR Z4c C0.1 direct Cactus build
 
 on:
   push:
@@ -6,60 +6,92 @@ on:
   workflow_dispatch:
 
 jobs:
-  native-z4c-strict:
+  direct-cactus-build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
+
       - name: Install dependencies
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y build-essential gfortran git subversion curl wget perl python3 python3-pip pkg-config cmake ninja-build ccache openmpi-bin libopenmpi-dev libhdf5-openmpi-dev libfftw3-dev libgsl-dev libssl-dev liblapack-dev libopenblas-dev libhwloc-dev libboost-all-dev
+
       - name: Fetch ET_2026_05 Hypatia
         run: |
+          set -euo pipefail
           curl -fsSLO https://raw.githubusercontent.com/gridaphobe/CRL/ET_2026_05/GetComponents
           chmod +x GetComponents
           ./GetComponents --shallow https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2026_05/einsteintoolkit.th
+
       - name: Add FTARScalarX
         run: |
+          set -euo pipefail
           mkdir -p Cactus/arrangements/FTAR
           cp -a z4c_c0/FTARScalarX Cactus/arrangements/FTAR/
-          curl -fsSL https://bitbucket.org/einsteintoolkit/manifest/raw/ET_2026_05/einsteintoolkit.th -o ftar-z4c.th
-          printf '\n# Local FTAR thorn\nFTAR/FTARScalarX\n' >> ftar-z4c.th
-      - name: Build
+
+      - name: Generate local Cactus ThornList
         run: |
+          set -euo pipefail
           cd Cactus
-          ./simfactory/bin/sim setup-silent
-          ./simfactory/bin/sim build -j2 --thornlist ../ftar-z4c.th 2>&1 | tee ../build-c02b.log
-          echo 'Executables:'
-          find exe -maxdepth 1 -type f -ls
-      - name: Run linear wave Z4c strictly
+          find arrangements -mindepth 3 -maxdepth 3 -type f -name interface.ccl -print \
+            | sed -E 's#^arrangements/([^/]+)/([^/]+)/interface\.ccl$#\1/\2#' \
+            | sort -u > ../ftar-c0-local.th
+          grep -qx 'FTAR/FTARScalarX' ../ftar-c0-local.th
+          echo "Thorns selected: $(wc -l < ../ftar-c0-local.th)"
+          grep -E 'CottonmouthZ4c4m|CarpetX|TmunuBaseX|ODESolvers|FTARScalarX' ../ftar-c0-local.th
+
+      - name: Configure directly with Cactus make system
         run: |
+          set -euo pipefail
           cd Cactus
-          PAR="$PWD/arrangements/Cottonmouth/CottonmouthZ4c4m/test/linear_wave_z4c.par"
-          ./simfactory/bin/sim create-submit ftar-linear-z4c --configuration sim --parfile "$PAR" --procs 1 --num-threads 1 --walltime 0:10:00 2>&1 | tee ../linear-wave-c02b.log
-      - name: Run QC0 Z4c strictly
+          make ftar-c0-config THORNLIST=../ftar-c0-local.th PROMPT=no 2>&1 | tee ../configure-c01.log
+
+      - name: Build directly with Cactus make system
         run: |
+          set -euo pipefail
           cd Cactus
-          PAR="$PWD/arrangements/Cottonmouth/CottonmouthZ4c4m/test/qc0_z4c.par"
-          ./simfactory/bin/sim create-submit ftar-qc0-z4c --configuration sim --parfile "$PAR" --procs 1 --num-threads 1 --walltime 0:10:00 2>&1 | tee ../qc0-c02b.log
+          make -j2 ftar-c0 2>&1 | tee ../build-c01.log
+          test -x exe/cactus_ftar-c0
+          ./exe/cactus_ftar-c0 -T 2>&1 | tee ../thorn-list-c01.log
+
+      - name: Source-account Tmunu writes
+        run: |
+          set -euo pipefail
+          cd Cactus
+          {
+            echo '=== FTARScalarX writes to TmunuBaseX ==='
+            grep -R -n -E 'eT(tt|tx|ty|tz|xx|xy|xz|yy|yz|zz).*([+]=|=)' arrangements/FTAR/FTARScalarX || true
+            echo '=== FTARScalarX schedule ==='
+            cat arrangements/FTAR/FTARScalarX/schedule.ccl
+            echo '=== TmunuBaseX zero/add schedule references ==='
+            grep -R -n -E 'ZeroTmunu|eTtt|eTtx|eTxx' arrangements/CarpetX arrangements/*/TmunuBaseX 2>/dev/null | head -300 || true
+            echo '=== Cottonmouth RHS schedule ==='
+            grep -R -n -E 'z4c_rhs_group|Tmunu|RHSGroup' arrangements/Cottonmouth/CottonmouthZ4c4m 2>/dev/null | head -300 || true
+          } | tee ../tmunu-accounting-c01.log
+
       - name: Collect diagnostics
         if: always()
         run: |
-          tail -300 build-c02b.log > build-c02b-tail.txt || true
-          tail -300 linear-wave-c02b.log > linear-wave-c02b-tail.txt || true
-          tail -300 qc0-c02b.log > qc0-c02b-tail.txt || true
-          find Cactus/simulations -maxdepth 5 -type f 2>/dev/null | sort > simulation-files-c02b.txt || true
+          set +e
+          tail -400 configure-c01.log > configure-c01-tail.txt 2>/dev/null
+          tail -500 build-c01.log > build-c01-tail.txt 2>/dev/null
+          cp Cactus/configs/ftar-c0/ThornList thornlist-c01.txt 2>/dev/null
+          find Cactus/configs/ftar-c0 -maxdepth 3 -type f -name '*error*' -o -name 'config.log' 2>/dev/null | sort > config-diagnostic-files.txt
+
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ftar-z4c-c02b-native-strict-diagnostics
+          name: ftar-z4c-c01-direct-build-diagnostics
           path: |
-            build-c02b.log
-            build-c02b-tail.txt
-            linear-wave-c02b.log
-            linear-wave-c02b-tail.txt
-            qc0-c02b.log
-            qc0-c02b-tail.txt
-            simulation-files-c02b.txt
+            configure-c01.log
+            configure-c01-tail.txt
+            build-c01.log
+            build-c01-tail.txt
+            thorn-list-c01.log
+            thornlist-c01.txt
+            tmunu-accounting-c01.log
+            config-diagnostic-files.txt
+            ftar-c0-local.th
