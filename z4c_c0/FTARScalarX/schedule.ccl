@@ -1,9 +1,38 @@
 STORAGE: state[1]
 STORAGE: rhs[1]
 STORAGE: diagnostics[1]
-SCHEDULE FTARScalarX_InitialData IN ODESolvers_Initial BEFORE CottonmouthZ4c_InitialGroup { LANG: C WRITES: state(everywhere) WRITES: ADMBaseX::metric(everywhere) WRITES: ADMBaseX::curv(everywhere) WRITES: ADMBaseX::lapse(everywhere) WRITES: ADMBaseX::shift(everywhere) } "Initialize FTAR scalar and optional ADM data"
-SCHEDULE FTARScalarX_SyncState IN ODESolvers_PostStep { LANG: C OPTIONS: global SYNC: state } "Synchronize FTAR scalar state"
-SCHEDULE FTARScalarX_SetTmunuStage IN ODESolvers_RHS BEFORE CottonmouthZ4c_RHSGroup { LANG: C READS: state(everywhere) READS: CottonmouthZ4c4m::chi(everywhere) READS: CottonmouthZ4c4m::gt(everywhere) READS: CottonmouthZ4c4m::evo_lapse(everywhere) READS: CottonmouthZ4c4m::evo_shift(everywhere) WRITES: TmunuBaseX::eTtt(interior) WRITES: TmunuBaseX::eTti(interior) WRITES: TmunuBaseX::eTij(interior) } "Set scalar stress-energy for current Z4c RK stage"
-SCHEDULE FTARScalarX_RHS IN ODESolvers_RHS BEFORE CottonmouthZ4c_RHSGroup AFTER FTARScalarX_SetTmunuStage { LANG: C READS: state(everywhere) READS: CottonmouthZ4c4m::chi(everywhere) READS: CottonmouthZ4c4m::gt(everywhere) READS: CottonmouthZ4c4m::trK(everywhere) READS: CottonmouthZ4c4m::evo_lapse(everywhere) READS: CottonmouthZ4c4m::evo_shift(everywhere) WRITES: rhs(interior) } "Evolve canonical scalar on current Z4c geometry"
-SCHEDULE FTARScalarX_AddToTmunu IN TmunuBaseX_AddToTmunu { LANG: C READS: state(everywhere) READS: ADMBaseX::metric(everywhere) READS: ADMBaseX::lapse(everywhere) READS: ADMBaseX::shift(everywhere) READS: TmunuBaseX::eTtt(interior) READS: TmunuBaseX::eTti(interior) READS: TmunuBaseX::eTij(interior) WRITES: TmunuBaseX::eTtt(interior) WRITES: TmunuBaseX::eTti(interior) WRITES: TmunuBaseX::eTij(interior) } "Add FTAR scalar stress-energy after completed step"
-SCHEDULE FTARScalarX_Diagnostics AT analysis { LANG: C READS: state(everywhere) READS: ADMBaseX::metric(everywhere) WRITES: diagnostics(interior) SYNC: diagnostics } "Compute scalar diagnostics"
+
+SCHEDULE FTARScalarX_InitialData IN ODESolvers_Initial BEFORE CottonmouthZ4c_InitialGroup
+{
+  LANG: C
+  WRITES: state(everywhere) ADMBaseX::metric(everywhere) ADMBaseX::curv(everywhere) ADMBaseX::lapse(everywhere) ADMBaseX::shift(everywhere)
+} "Initialize FTAR scalar and optional ADM data"
+
+SCHEDULE FTARScalarX_SyncState IN ODESolvers_PostStep
+{
+  LANG: C
+  OPTIONS: global
+  SYNC: state
+} "Synchronize FTAR scalar state"
+
+SCHEDULE FTARScalarX_SetTmunuStage IN ODESolvers_RHS BEFORE CottonmouthZ4c_RHSGroup
+{
+  LANG: C
+  READS: state(everywhere) CottonmouthZ4c4m::chi(everywhere) CottonmouthZ4c4m::gt(everywhere) CottonmouthZ4c4m::evo_lapse(everywhere) CottonmouthZ4c4m::evo_shift(everywhere)
+  WRITES: TmunuBaseX::eTtt(interior) TmunuBaseX::eTti(interior) TmunuBaseX::eTij(interior)
+} "Set scalar stress-energy for current Z4c RK stage"
+
+SCHEDULE FTARScalarX_RHS IN ODESolvers_RHS BEFORE CottonmouthZ4c_RHSGroup AFTER FTARScalarX_SetTmunuStage
+{
+  LANG: C
+  READS: state(everywhere) CottonmouthZ4c4m::chi(everywhere) CottonmouthZ4c4m::gt(everywhere) CottonmouthZ4c4m::trK(everywhere) CottonmouthZ4c4m::evo_lapse(everywhere) CottonmouthZ4c4m::evo_shift(everywhere)
+  WRITES: rhs(interior)
+} "Evolve canonical scalar on current Z4c geometry"
+
+SCHEDULE FTARScalarX_Diagnostics AT analysis
+{
+  LANG: C
+  READS: state(everywhere) ADMBaseX::metric(everywhere)
+  WRITES: diagnostics(interior)
+  SYNC: diagnostics
+} "Compute scalar diagnostics"
