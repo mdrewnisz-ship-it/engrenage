@@ -1,0 +1,23 @@
+KEYWORD initial_data "Scalar/ADM initial data source"
+{
+  "zero" :: "Zero scalar; leave ADM variables untouched"
+  "flat_gaussian" :: "Weak-field Gaussian shell on Minkowski ADM data"
+  "radial_table" :: "Read constraint-consistent spherical FTAR radial table"
+  "external" :: "Do not initialize"
+} "zero"
+STRING radial_table_file "ASCII radial table" { ".*" :: "Any path" } "ftar_radial_table.dat"
+KEYWORD gaussian_momentum "Momentum prescription" {
+  "time_symmetric" :: "Pi=0"
+  "simple_negative_characteristic" :: "Pi=-d_r phi"
+  "paper3_seed" :: "Historical Paper-III seed"
+  "true_ingoing" :: "Ingoing spherical characteristic"
+  "simple_ingoing" :: "Deprecated alias"
+  "paper3_ingoing" :: "Deprecated alias"
+} "time_symmetric"
+CCTK_REAL gaussian_amplitude "Gaussian amplitude" { *:* :: "" } 1.0e-8
+CCTK_REAL gaussian_R0 "Gaussian centre" { 0:* :: "" } 6.0
+CCTK_REAL gaussian_sigma "Gaussian width" { 0:* :: "" } 1.0
+CCTK_REAL V_plateau "Potential plateau" { 0:* :: "" } 0.01
+CCTK_REAL phi_star "Scalar saturation scale" { 0:* :: "" } 0.05
+BOOLEAN stage_tmunu_exclusive "Overwrite TmunuBaseX during RHS stages" { } yes
+BOOLEAN set_adm_from_radial_table "Initialize ADM from radial table" { } yes
